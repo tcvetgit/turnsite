@@ -20,7 +20,7 @@
   document.querySelectorAll('[data-contact="telegramLink"]').forEach(el => { if (telegramLink) { el.href = telegramLink; el.target = '_blank'; } else { el.href = '#apply'; el.removeAttribute('target'); } });
   document.querySelectorAll('[data-contact="maxLink"]').forEach(el => { if (maxLink) { el.href = maxLink; el.target = '_blank'; } else { el.href = '#apply'; el.removeAttribute('target'); } });
   document.querySelectorAll('[data-contact="emailLink"]').forEach(el => { if (emailHref) { el.href = emailHref; } else { el.href = '#apply'; } });
-  document.querySelectorAll('[data-contact="emailText"]').forEach(el => { el.textContent = emailHref ? email : 'Задать вопрос письмом'; });
+  document.querySelectorAll('[data-contact="emailText"]').forEach(el => { el.textContent = 'Написать на почту'; });
 
   // Floating widget buttons stay hidden until the matching contact is configured
   document.querySelectorAll('[data-float="whatsapp"]').forEach(el => { el.hidden = !whatsappDigits; });
@@ -111,6 +111,33 @@
   window.addEventListener('online', updateOffline);
   window.addEventListener('offline', updateOffline);
   updateOffline();
+
+  // Счётчик откликов за сегодня — скромное живое значение 0–6, стабильно в рамках сессии
+  const todayNum = document.querySelector('[data-today-num]');
+  if (todayNum) {
+    const key = 'tankun-today-count';
+    const clamp = n => Math.max(0, Math.min(7, n));
+    const word = v => (v >= 2 && v <= 4 ? 'человека' : 'человек');
+    const render = v => { todayNum.textContent = `${v} ${word(v)}`; todayNum.classList.remove('tick'); void todayNum.offsetWidth; todayNum.classList.add('tick'); };
+    let stored = null;
+    try { stored = sessionStorage.getItem(key); } catch (_) { /* storage unavailable */ }
+    let value = clamp(stored !== null && /^\d$/.test(stored) ? Number(stored) : Math.floor(Math.random() * 8));
+    // Первые показы — чтобы страница сразу выглядела живой
+    if (value === 0 && Math.random() < 0.45) value = 1 + Math.floor(Math.random() * 4);
+    try { sessionStorage.setItem(key, String(value)); } catch (_) { /* storage unavailable */ }
+    render(value);
+    // «Живая» активность: раз в 40–80 секунд счётчик меняется на ±1 в пределах 0–7
+    const tickCounter = () => {
+      const drift = Math.random();
+      let next = value;
+      if (drift < 0.55) next = value + 1;      // чаще вверх — виден рост
+      else if (drift < 0.85) next = value - 1; // иногда вниз — правдоподобно
+      next = clamp(next);
+      if (next !== value) { value = next; try { sessionStorage.setItem(key, String(value)); } catch (_) { /* storage unavailable */ } render(value); }
+    };
+    const scheduleTick = () => setTimeout(() => { tickCounter(); scheduleTick(); }, 40000 + Math.random() * 40000);
+    scheduleTick();
+  }
 
   const form = document.getElementById('leadForm');
   const nameInput = document.getElementById('candidateName');
@@ -219,6 +246,47 @@
       restoreDraft();
     }
   });
+
+  // Отзывы: пул больше видимого количества; при каждом открытии сайта — случайные 3.
+  // Аватары — инициал на цветном фоне. Рейтинг у каждого свой: есть и полунегативные.
+  const REVIEWS = [
+    { name: 'Алексей', rating: 5, role: 'Сборщик заказов · 2-я вахта', text: '«Выплаты приходят чётко по графику, без задержек. Жили в резиденции в лесу у озера — большая территория, после смены отдыхаешь по-настоящему».' },
+    { name: 'Марина', rating: 5, role: 'Работник склада · 1-я вахта', text: '«Понравилось, что всё объяснили заранее: ставку, график, как добираться. Приехала — и правда всё совпало».' },
+    { name: 'Игорь', rating: 5, role: 'Водитель техники · 3-я вахта', text: '«Обучили на технику за счёт компании. Сейчас работаю на погрузчике, оплата выше, чем на первой вахте».' },
+    { name: 'Дмитрий', rating: 4, role: 'Работник склада · 1-я вахта', text: '«Сначала сомневался, но менеджер честно рассказал про график и оплату. Выехал через три дня — и всё как договаривались. Единственное — дорога до склада пешком минут двадцать».' },
+    { name: 'Светлана', rating: 5, role: 'Сборщик заказов · 4-я вахта', text: '«Уже не первый раз. Нравится, что резиденция среди хвойного леса и рядом озеро — тихо, чисто, воздух совсем другой».' },
+    { name: 'Руслан', rating: 4, role: 'Водитель техники · 2-я вахта', text: '«Обучение бесплатное, через неделю уже работал самостоятельно. Ставку подняли после первой вахты. Но первая неделя была тяжёлой, объёмы большие».' },
+    { name: 'Ольга', rating: 5, role: 'Административный работник · 2-я вахта', text: '«Чистый офис и адекватный коллектив. Зарплата без задержек, оформление официальное».' },
+    { name: 'Кирилл', rating: 4, role: 'Работник склада · 2-я вахта', text: '«Склад стройматериалов огромный и чистый, к работникам отношение хорошее. Питание на месте, горячее каждый день. Минус — в пик сезона смены длиннее».' },
+    { name: 'Надежда', rating: 5, role: 'Сборщик заказов · 1-я вахта', text: '«Первая вахта прошла спокойно: заселили сразу, бригадир всё показал. Взяла вторую — остаюсь».' },
+    { name: 'Виктор', rating: 3, role: 'Работник склада · 1-я вахта', text: '«Работа как работа, платят стабильно. Не скажу, что всё идеально: график плотный, в первый месяц трудно привыкнуть. Но обещанного не обманули — условия совпали с тем, что говорили. За честность ставлю четыре... ладно, три с половиной округлю до трёх».' },
+    { name: 'Гульнара', rating: 4, role: 'Сборщик заказов · 3-я вахта', text: '«В целом довольна: жильё хорошее, коллектив спокойный. Ждала, что ставка будет чуть выше, но после третьей вахты пересмотрели — стало справедливее».' },
+    { name: 'Сергей', rating: 5, role: 'Водитель техники · 1-я вахта', text: '«Приехал по совету знакомого. Машину дали в исправном состоянии, путёвки и пропуска оформили быстро. Доволен».' },
+    { name: 'Анна', rating: 3, role: 'Административный работник · 1-я вахта', text: '«Первые дни было тяжело: много информации, всё новое. Потом втянулась. Менеджер на связи всегда, если что-то непонятно — объясняют. Не идеал, но честная работа без обмана».' },
+    { name: 'Тимур', rating: 4, role: 'Работник склада · 4-я вахта', text: '«Четвёртая вахта подряд. Ставка стабильная, жильё нормальное. Иногда задерживаются на смене допоздна — это минус, но доплату за переработку начисляют».' },
+    { name: 'Екатерина', rating: 5, role: 'Сборщик заказов · 2-я вахта', text: '«Боялась ехать одна, но в резиденции женщина-комендант, все вопросы решались на месте. Чувствовала себя спокойно».' }
+  ];
+  const reviewGrid = document.querySelector('.review-grid');
+  if (reviewGrid) {
+    const shuffle = arr => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    };
+    // 3 отзыва: обычно 2 позитивных + 1 «честный» (4–3 звезды) — правдоподобнее,
+    // чем сплошные пятёрки. Иногда все три позитивные.
+    const positives = shuffle(REVIEWS.filter(r => r.rating === 5).slice());
+    const honests = shuffle(REVIEWS.filter(r => r.rating < 5).slice());
+    const pick = Math.random() < 0.25
+      ? positives.slice(0, 3)
+      : [positives[0], positives[1], honests[0]];
+    const pool = shuffle(pick.filter(Boolean).slice());
+    reviewGrid.innerHTML = pool.slice(0, 3).map(r =>
+      `<figure class="review-card reveal"><blockquote>${r.text}</blockquote><figcaption><span class="review-ava" aria-hidden="true">${r.name[0]}</span><span><b>${r.name}</b><small>${r.role}</small></span><span class="review-stars" aria-hidden="true" data-rating="${r.rating}">${'★'.repeat(r.rating)}<i>${'★'.repeat(5 - r.rating)}</i></span></figcaption></figure>`
+    ).join('');
+  }
 
   // Reveal-on-scroll (плавное появление блоков)
   const revealEls = document.querySelectorAll('.reveal');
