@@ -220,20 +220,32 @@
     if (digits.length < 11) { error.textContent = 'Введите корректный номер телефона.'; invalidate(phoneInput); return; }
     if (!consent.checked) { error.textContent = 'Для отправки заявки подтвердите согласие на обработку данных.'; invalidate(consent); return; }
     if (!navigator.onLine) { error.textContent = 'Нет подключения к интернету. Проверьте связь и попробуйте ещё раз — введённые данные сохранены.'; return; }
-    const lead = { name, phone: '+7' + digits.slice(-10), job: jobInput.value, time: timeInput ? timeInput.value : '', page: location.href, consent: consent.checked, website: document.getElementById('website').value };
+    // Защита от спама: не чаще одной заявки в 60 секунд с одного браузера
+    const rateKey = 'tankun-lead-last';
+    if (Date.now() - Number(sessionStorage.getItem(rateKey) || 0) < 60000) {
+      error.textContent = 'Вы недавно отправляли заявку — мы её получили и скоро перезвоним. Если что-то срочно, напишите в мессенджер.';
+      return;
+    }
+    const params = new URLSearchParams(location.search);
+    const utm = ['utm_source', 'utm_medium', 'utm_campaign'].map(k => params.get(k)).filter(Boolean).join(' / ');
+    const source = utm || (document.referrer ? 'Переход с ' + new URL(document.referrer).hostname : 'Прямой заход / реклама не помечена');
+    const lead = { name, phone: '+7' + digits.slice(-10), job: jobInput.value, time: timeInput ? timeInput.value : '', page: location.href, source, consent: consent.checked, website: document.getElementById('website').value };
     const button = form.querySelector('[type="submit"]');
     button.disabled = true; button.textContent = 'Отправляем…';
     try {
       const token = String(config.tgBotToken || '').trim();
       const chatIds = String(config.tgChatId || '').split(',').map(s => s.trim()).filter(Boolean);
       if (token && chatIds.length) {
+        const mskTime = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date());
         const text = [
           '🔔 Новая заявка с сайта',
           '',
+          `Время (мск): ${mskTime}`,
           `Имя: ${lead.name}`,
           `Телефон: ${lead.phone}`,
           lead.job ? `Вакансия: ${lead.job}` : '',
           lead.time ? `Удобное время звонка: ${lead.time}` : '',
+          `Источник: ${lead.source}`,
           '',
           `Страница: ${lead.page}`
         ].filter(Boolean).join('\n');
@@ -246,6 +258,7 @@
         ));
         if (results.some(r => !r.ok)) throw new Error('Telegram delivery failed');
       }
+      sessionStorage.setItem('tankun-lead-last', String(Date.now()));
       showSuccess(lead);
     } catch (_) {
       button.disabled = false; button.innerHTML = 'Жду звонка <span aria-hidden="true">↗</span>';

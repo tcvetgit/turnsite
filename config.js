@@ -9,5 +9,5 @@ window.SITE_CONFIG = {
   // Прямая отправка заявок в Telegram (для GitHub Pages / статического хостинга).
   // При переезде на серверный хостинг — убрать токен отсюда и вернуть leadEndpoint: '/api/lead'
   tgBotToken: '8903011638:AAEoOHQQAjPiMpD7NPRmbgu0aLD6y38N2n0',
-  tgChatId: '407363992'
+  tgChatId: '-5435432817'  // группа «ТАНКУН Заявки с сайта»
 };
