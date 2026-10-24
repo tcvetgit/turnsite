@@ -224,10 +224,27 @@
     const button = form.querySelector('[type="submit"]');
     button.disabled = true; button.textContent = 'Отправляем…';
     try {
-      const endpoint = String(config.leadEndpoint || '').trim();
-      if (endpoint) {
-        const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead) });
-        if (!response.ok) throw new Error('Lead delivery failed');
+      const token = String(config.tgBotToken || '').trim();
+      const chatIds = String(config.tgChatId || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (token && chatIds.length) {
+        const text = [
+          '🔔 Новая заявка с сайта',
+          '',
+          `Имя: ${lead.name}`,
+          `Телефон: ${lead.phone}`,
+          lead.job ? `Вакансия: ${lead.job}` : '',
+          lead.time ? `Удобное время звонка: ${lead.time}` : '',
+          '',
+          `Страница: ${lead.page}`
+        ].filter(Boolean).join('\n');
+        const results = await Promise.all(chatIds.map(chatId =>
+          fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text })
+          })
+        ));
+        if (results.some(r => !r.ok)) throw new Error('Telegram delivery failed');
       }
       showSuccess(lead);
     } catch (_) {
