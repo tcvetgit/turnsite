@@ -1,0 +1,8 @@
+# robots.txt для сайта «Танкун»
+
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# После публикации замените ВАШ-ДОМЕН на реальный адрес и уберите «#»:
+# Sitemap: https://ВАШ-ДОМЕН/sitemap.xml
